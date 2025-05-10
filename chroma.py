@@ -1,110 +1,88 @@
 import chromadb
 import requests
 
-
 #7OOYZDM6H53OW8L8
 
-def get_earnings_call_transcript(ticker: str, quarter: str) -> dict|None:
+def add_ticker_to_chroma(ticker: str) -> None:
+    transcript_dict: dict = {}
+    year = 2025
+    quarter = 1
 
+    while len(transcript_dict) == 0 and transcript_dict is not None:
 
-#format
-# 
-# {
-#     "symbol": ,
-#     "quarter": ,
-#     "transcript": [
-#         {
-#             "speaker": "",
-#             "title": "",
-#             "content": "",
-#             "sentiment": ""
-#         }, 
-# 
+        query_url = f'https://www.alphavantage.co/query?function=EARNINGS_CALL_TRANSCRIPT&symbol={ticker}&quarter={year}Q{quarter}&apikey=7OOYZDM6H53OW8L8'
+        response = requests.get(query_url)
 
-    query_url = f'https://www.alphavantage.co/query?function=EARNINGS_CALL_TRANSCRIPT&symbol={ticker}&quarter={quarter}&apikey=7OOYZDM6H53OW8L8'
+        if response.status_code != 200:
+            print(f"Failed to retrieve transcript for {ticker}. Status code: {response.status_code}")
 
-    response = requests.get(query_url)
+        else:
+            data: dict = response.json()
+            try:
+                transcript_dict: dict = data["transcript"]
 
-    if response.status_code != 200:
-        print(f"Failed to retrieve transcript for {ticker}. Status code: {response.status_code}")
+                if len(transcript_dict) == 0:
+                    quarter -= 1
+                    if quarter == 0:
+                        quarter = 4
+                        year -= 1
 
+                    if year == 2024 and quarter < 3:
+                        print(f"No transcript found for {ticker} in any recent quarter.")
+                        return None
+            
+            except Exception as e:
+                print(f"No transcript found for {ticker}. Probably API rate limit exceeded.")
+                return None
+            
+    potential_id = f"{ticker}_0"
+    
+    if potential_id in collection.get(ids=[potential_id])["ids"]:
+        print(f"{ticker} earnings call already exists in ChromaDB.")
+    
     else:
-        data: dict = response.json()
-        
-    
-    try:
-        transcript_dict: dict = data["transcript"]
+        documents = []
+        metadatas = []
+        ids = []
 
-    except Exception as e:
-        #print(f"No transcript found. Probably API rate limit exceeded.")
-        return None
+        for i, entry in enumerate(transcript_dict):
+            speaker: str = entry["speaker"]
+            speaker_title: str = entry["title"]
+            content: str = entry["content"]
+            sentiment: str = entry["sentiment"]
 
-    if len(transcript_dict) == 0:
-        return None
+            documents.append(content)
+            metadatas.append({"speaker": speaker, "title": speaker_title, "sentiment": sentiment})
+            ids.append(f"{ticker}_{i}")
 
-    return transcript_dict
+        collection.add(
+            documents=documents,
+            metadatas=metadatas,
+            ids=ids
+        )
+        print(f"Added {len(documents)} entries to ChromaDB for {ticker} in quarter {year}Q{quarter}.")
 
-
-def add_transcript_to_chroma(ticker, quarter, transcript: dict) -> None:
-    
-
-
-    documents = []
-    metadatas = []
-    ids = []
-
-    if transcript is None:
-        print(f"No transcript found for {ticker} in quarter {quarter}.")
-        return
-
-    for i, entry in enumerate(transcript):
-         speaker: str = entry["speaker"]
-         speaker_title: str = entry["title"]
-         content: str = entry["content"]
-         sentiment: str = entry["sentiment"]
-
-         documents.append(content)
-         metadatas.append({"speaker": speaker, "title": speaker_title, "sentiment": sentiment})
-         ids.append(f"{ticker}_{quarter}_{i}")
-
-    collection.add(
-        documents=documents,
-        metadatas=metadatas,
-        ids=ids
-    )
-    print(f"Added {len(documents)} entries to ChromaDB for {ticker} in quarter {quarter}.")
     return None
+            
+
+    
 
 if __name__ == "__main__":
     client = chromadb.PersistentClient()
     collection = client.get_or_create_collection("database")
 
-    #Top 20 tickers added;
-    #TODO: make it so it doesn't add double entries
-    #TODO: get the quarter dynamically so we can use that on new tickers
 
-    tickers = ["MSFT", "NVDA", "AMZN", "GOOG", "2222.SR",
-               "META", "BRK-B", "AVGO", "TSLA", "TSM",
-               "WMT", "JPM", "LLY", "V", "TCEHY", 
-               "MA", "NFLX", "XOM", "COST"]
-    quarters = ["2025Q3", "2025Q4", "2025Q1", "2025Q1", "2024Q4",
-                "2025Q1", "2024Q4", "2025Q2", "2025Q1", "2025Q1",
-                "2025Q4", "2025Q1", "2025Q1", "2025Q2", "2024Q4",
-                "2025Q1", "2025Q1", "2025Q1", "2025Q2"]
-    
-    for ticker, quarter in zip(tickers, quarters):
-        print(f"Processing {ticker} for quarter {quarter}...")
-        transcript = get_earnings_call_transcript(ticker, quarter)
-        add_transcript_to_chroma(ticker, quarter, transcript)
+    tickers = ["LCID", "RIVN", "F", 
+               "AMD", "AMC", "DIS", "KO"]
 
-    need_to_add = ["2222.SR", "BRK-B", "AVGO", "TCEHY"]
+    for ticker in tickers:
+        add_ticker_to_chroma(ticker)
 
 
-
-    # query = "financial performance"
+    # query = "is tesla ramping up production?"
     # results = collection.query(
     #     query_texts=[query],
-    #     n_results=1
+    #     n_results=3
     # )
-    # print("\nExample query results for 'financial performance' in AAPL transcripts:")
-    # print(results)
+    # print("\nExample query results for 'financial performance of tesla' in all transcripts:")
+    # print(results["documents"])

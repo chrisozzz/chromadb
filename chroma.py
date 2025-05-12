@@ -72,8 +72,10 @@ if __name__ == "__main__":
     collection = client.get_or_create_collection("database")
 
 
-    tickers = ["LCID", "RIVN", "F", 
-               "AMD", "AMC", "DIS", "KO"]
+    tickers = ["KO", "NDAQ", "PLTR", "GME", "TSM", "SMCI", 
+               "RKLB", "RDDT", "BLK", "ORCL", "INTC", "CSCO",
+               "AAPL", "MSFT", "HTZ", "NSANY", "TM", "RACE", 
+               "GM", "HMC", "MTSUY", "^RUT", "^DJI", "^GSPC"]
 
     for ticker in tickers:
         add_ticker_to_chroma(ticker)
